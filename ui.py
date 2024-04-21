@@ -7,12 +7,22 @@ from copy import deepcopy
 from pprint import pprint
 from tkinter import filedialog, messagebox
 
-from baseedit import EditCanvas
+import viewbase
+from baseedit import EditCanvas, draw_base
 from baseinfo import BASE_NAMES, BASE_NAMES_REV
 from canvasbutton import CanvasButton
 from items import ITEMS
 from pokemon import MOVES, POKEMON
 from viewbase import layout_hash, team_hash
+
+try:
+    import PIL.ImageGrab
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+
+
+MAX_RECENT_FILES = 5
 
 
 TRAINER_CLASSES = [
@@ -252,7 +262,7 @@ class TrainerEdit(tk.Frame):
 
         self.update_party_button_image(index)
         self.partyButtons.btns[index].state = 'disabled'
-    
+
 
     def get_base_from_inputs(self):
         newBase = deepcopy(self.editCanvas.base)
@@ -302,10 +312,10 @@ class TrainerEdit(tk.Frame):
         lh = layout_hash(self.bases[idx])
         th = team_hash(self.bases[idx])
         fn = f"{folder_path}/{self.bases[idx]['trainer_name']} ({self.bases[idx]['id']}) - {lh} - {th}.json"
-                
+
         with open(fn, 'w+') as f:
             f.write(json.dumps(self.bases[idx], indent=4))
-        
+
         print(f"Saved to {fn}")
 
     def save_all_bases(self, folder_path):
@@ -324,6 +334,20 @@ class TrainerEdit(tk.Frame):
         self.bases[self.active_idx] = imported_base
         self.active_idx = None
         self.load_base(idx)
+
+    def save_base_as_image(self, idx, file_name):
+        base = self.bases[idx]
+        draw_base(base, file_name)
+
+    def save_all_bases_as_images(self, folder_path):
+        for i in range(20):
+            if self.bases[i]['trainer_name']:
+                lh = layout_hash(self.bases[i])
+                th = team_hash(self.bases[i])
+                fn = f"{folder_path}/{self.bases[i]['trainer_name']} ({self.bases[i]['id']}) - {lh} - {th}.png"
+                self.save_base_as_image(i, fn)
+
+        
 
 
 class BaseEdit(tk.Frame):
@@ -379,7 +403,7 @@ class PartyButtons(tk.Frame):
         for i in range(6):
             self.btns[i].state = 'normal'
         self.btns[self.active].state = 'disabled'
-        
+
         for i in range(6):
             self.btns[i].draw()
 
@@ -391,20 +415,12 @@ class App(tk.Tk):
         super().__init__(*args, **kwargs)
         self.title("Secret Base Editor")
 
-        # add file menu
-        self.menu = tk.Menu(self)
-        self.config(menu=self.menu)
-        self.file_menu = tk.Menu(self.menu, tearoff=0)
-        self.file_menu.add_command(label="Open...", command=self.open_file_dialog, underline=0)
-        self.file_menu.add_command(label="Save File...", command=self.save_file_dialog, underline=0)
-        self.file_menu.add_command(label="Export Base...", command=self.save_base_dialog, underline=0)
-        self.file_menu.add_command(label="Export All Bases...", command=self.save_all_bases_dialog, underline=0)
-        self.file_menu.add_command(label="Import Base...", command=self.import_base_dialog, underline=0)
-        self.menu.add_cascade(label="File", menu=self.file_menu)
+        self.load_settings()
+        self.create_menu()
 
         self.treeview = ttk.Treeview(self, show="tree", selectmode='browse')
         self.treeview.grid(row=0, column=0, sticky='nsew')
-        self.treeview.bind("<ButtonRelease-1>", self.on_treeview_click)        
+        self.treeview.bind("<ButtonRelease-1>", self.on_treeview_click)
 
         for i in range(20):
             self.treeview.insert('', 'end', text=f'Base {i+1}')
@@ -415,6 +431,39 @@ class App(tk.Tk):
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
+
+    def create_menu(self):
+        self.menu = tk.Menu(self)
+        self.config(menu=self.menu)
+        self.file_menu = tk.Menu(self.menu, tearoff=0)
+        self.file_menu.add_command(label="Open...", command=self.open_file_dialog, underline=0)
+        self.file_menu.add_command(label="Save File...", command=self.save_file_dialog, underline=0)
+        self.file_menu.add_command(label="Export Base...", command=self.save_base_dialog, underline=0)
+        self.file_menu.add_command(label="Export All Bases...", command=self.save_all_bases_dialog, underline=7)
+        self.file_menu.add_command(label="Import Base...", command=self.import_base_dialog, underline=0)
+
+        if PIL_AVAILABLE:
+            self.file_menu.add_command(label="Export Base As Image...", command=self.export_base_as_image, underline=1)
+            self.file_menu.add_command(label="Export All Bases As Images...", command=self.export_all_bases_as_images, underline=7)
+        else:
+            self.file_menu.add_command(label="Export Base As Image... (requires PIL)", state='disabled', underline=1)
+            self.file_menu.add_command(label="Export All Bases As Images... (requires PIL)", state='disabled', underline=7)
+
+        self.file_menu.add_separator()
+
+        # recent files
+        self.file_menu.add_cascade(label="Recent Files", menu=tk.Menu(self.file_menu, tearoff=0))
+        recent_files_menu = self.file_menu.winfo_children()[-1]
+        for i, fn in enumerate(self.settings['recent_files']):
+            recent_files_menu.add_command(label=fn, command=lambda fn=fn: self.open_file(fn), underline=0)
+
+        self.menu.add_cascade(label="File", menu=self.file_menu)
+
+    def update_menu(self):
+        # first, get rid of the entire menu
+        self.menu.delete(0)
+
+        self.create_menu()
 
     def update_list(self):
         bases = self.edit.bases
@@ -436,9 +485,12 @@ class App(tk.Tk):
     def on_treeview_click(self, event):
         item = self.treeview.selection()[0]
         self.edit.load_base(self.treeview.index(item))
-    
+
     def open_file_dialog(self):
         file_path = filedialog.askopenfilename(title="Open File", filetypes=[("SAV", "*.sav")])
+        self.open_file(file_path)
+
+    def open_file(self, file_path):
         fullsave = viewbase.load_full_save(file_path)
         save = viewbase.load_save(file_path)
         self.save = save
@@ -448,6 +500,18 @@ class App(tk.Tk):
         self.edit.active_idx = None
         self.edit.load_bases(bases)
         self.edit.load_base(0)
+
+        # add to recent files
+        if file_path in self.settings['recent_files']:
+            self.settings['recent_files'].remove(file_path)
+        self.settings['recent_files'].insert(0, file_path)
+
+        if len(self.settings['recent_files']) > MAX_RECENT_FILES:
+            self.settings['recent_files'].pop()
+
+        self.save_settings()
+
+        self.update_menu()
 
     def save_file_dialog(self):
         file_path = filedialog.asksaveasfilename(title="Save File", filetypes=[("SAV", "*.sav")])
@@ -465,15 +529,30 @@ class App(tk.Tk):
         file_path = filedialog.askopenfilename(title="Import Base", filetypes=[("JSON", "*.json")])
         self.edit.import_base(file_path)
 
-    
-import viewbase
+    def export_base_as_image(self):
+        file_path = filedialog.asksaveasfilename(title="Export Base As Image", filetypes=[("PNG", "*.png")])
+        self.edit.save_base_as_image(self.edit.active_idx, file_path)
+
+    def export_all_bases_as_images(self):
+        folder_path = filedialog.askdirectory()
+        self.edit.save_all_bases_as_images(folder_path)
+
+    def save_settings(self):
+        with open('settings.json', 'w+') as f:
+            f.write(json.dumps(self.settings, indent=4))
+
+    def load_settings(self):
+        try:
+            with open('settings.json', 'r') as f:
+                self.settings = json.load(f)
+        except FileNotFoundError:
+            self.settings = {
+                'recent_files': []
+            }
+            self.save_settings()
 
 
-if __name__ == "__main__":
-    app = App()
-    ico = tk.PhotoImage(file='decorations/MUDKIP_DOLL.png')
-    app.wm_iconphoto(False, ico)
-
+def add_ctrl_c_handler(app):
     def handler(event):
         app.destroy()
         print('caught ^C')
@@ -481,12 +560,15 @@ if __name__ == "__main__":
     def check():
         app.after(500, check)  #  time in ms.
 
-    # the or is a hack just because I've shoving all this in a lambda. setup before calling main loop
     signal.signal(signal.SIGINT, lambda x,y : print('terminal ^C') or handler(None))
+    app.after(500, check)
 
-    # this let's the terminal ^C get sampled every so often
-    app.after(500, check)  #  time in ms.
 
-    app.bind_all('<Control-c>', handler)
+
+if __name__ == "__main__":
+    app = App()
+    ico = tk.PhotoImage(file='decorations/MUDKIP_DOLL.png')
+    app.wm_iconphoto(False, ico)
+    add_ctrl_c_handler(app)
 
     app.mainloop()

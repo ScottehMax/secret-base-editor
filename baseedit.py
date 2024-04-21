@@ -2,6 +2,14 @@ import tkinter as tk
 from tkinter import ttk
 import os
 
+try:
+    import PIL.ImageGrab
+    import PIL.Image
+    import PIL.ImageDraw
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+
 from baseinfo import BASE_LAYOUTS, BASE_NAMES, BASE_NAMES_REV
 from decors import SIZES, DECORATIONS, NAMES, NAMES_REV
 
@@ -311,6 +319,42 @@ class EditCanvas(tk.Frame):
                 outline="red",
                 width=2
             )
+
+
+def draw_base(base, output_filename):
+    if not PIL_AVAILABLE:
+        return
+
+    # create a new PIL image with the size of the template
+    layout = BASE_LAYOUTS[BASE_NAMES_REV[base['secret_base_id']]]
+    if layout == "None":
+        return
+    
+    fn = os.path.join(os.getcwd(), 'interior', f'{layout}.png')
+    bg = PIL.Image.open(fn)
+
+    decors, positions = sort_decorations(
+        base['decorations'],
+        base['decoration_positions']
+    )
+
+    for i in range(len(decors)):
+        decor = decors[i]
+        if decor == "DECOR_NONE":
+            continue
+        if "NOTE_MAT" in decor:
+            fn = os.path.join(os.getcwd(), 'decorations', 'NOTE_MAT.png')
+        else:
+            fn = os.path.join(os.getcwd(), 'decorations', f'{decor.replace("DECOR_", "")}.png')
+        img = PIL.Image.open(fn).convert("RGBA")
+        x_offset, y_offset = get_decoration_offset(decor)
+        x = (positions[i][0] + x_offset) * 16
+        y = (positions[i][1] + y_offset) * 16
+        bg.paste(img, (x, y), img)
+
+    bg.save(output_filename)
+
+    print(f"Saved image to {output_filename}")
 
 
 if __name__ == '__main__':
