@@ -1,5 +1,6 @@
 import json
 import os
+import os.path
 import signal
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -226,7 +227,11 @@ class TrainerEdit(tk.Frame):
         if self.state == 'switching':
             return
         species = self.speciesVar.get()
-        self.partyButtons.btns[index].set_image(f"sprites/{species.lower()}.png")
+
+        if os.path.exists(f"sprites/{species.lower()}.png"):
+            self.partyButtons.btns[index].set_image(f"sprites/{species.lower()}.png")
+        else:
+            self.partyButtons.btns[index].set_image("sprites/none.png")
         self.partyButtons.btns[index].draw()
 
     def set_party_display(self, index):
