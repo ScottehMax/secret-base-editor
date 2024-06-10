@@ -238,7 +238,7 @@ class TrainerEdit(tk.Frame):
         # first save all the old ones to the party
         if self.old_index is not None:
             self.party[self.old_index]['species'] = self.speciesVar.get()
-            self.party[self.old_index]['personality'] = int(self.pidVar.get())
+            self.party[self.old_index]['personality'] = self.pidVar.get()
             self.party[self.old_index]['level'] = int(self.levelVar.get())
             self.party[self.old_index]['held_item'] = self.itemVar.get()
             self.party[self.old_index]['evs'] = int(self.evsVar.get())

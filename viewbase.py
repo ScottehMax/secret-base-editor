@@ -164,7 +164,7 @@ def read_party(f):
     party = [{} for _ in range(PARTY_SIZE)]
     for i in range(PARTY_SIZE):
         personality = struct.unpack("<I", f.read(4))[0]
-        party[i]["personality"] = personality
+        party[i]["personality"] = f"{personality:X}".zfill(8)
     for i in range(PARTY_SIZE):
         moves = [struct.unpack("<H", f.read(2))[0] for _ in range(MAX_MON_MOVES)]
         try:
@@ -190,7 +190,7 @@ def read_party(f):
 def export_party(party: dict) -> bytes:
     data = b""
     for mon in party:
-        data += struct.pack("<I", mon["personality"])
+        data += struct.pack("<I", int(mon["personality"], 16))
     for mon in party:
         for move in mon["moves"]:
             try:
