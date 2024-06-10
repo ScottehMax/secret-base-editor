@@ -170,7 +170,7 @@ def read_party(f):
         try:
             moves = [MOVES[move] for move in moves]
         except:
-            print("error reading move; skipping this pokemon's moves. Base ID: " + BASE_NAMES[struct.unpack("<B", f.read(1))[0]])
+            pass
         party[i]["moves"] = moves
     for i in range(PARTY_SIZE):
         species = struct.unpack("<H", f.read(2))[0]
@@ -197,7 +197,6 @@ def export_party(party: dict) -> bytes:
                 data += struct.pack("<H", MOVES.index(move))
             except:
                 data += struct.pack("<H", MOVES.index('None'))
-                print("Error exporting move " + move + "; replacing with 'None'")
     for mon in party:
         data += struct.pack("<H", POKEMON.index(mon["species"]))
     for mon in party:
