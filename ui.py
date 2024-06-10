@@ -496,27 +496,31 @@ class App(tk.Tk):
         self.open_file(file_path)
 
     def open_file(self, file_path):
-        fullsave = viewbase.load_full_save(file_path)
-        save = viewbase.load_save(file_path)
-        self.save = save
-        self.fullsave = fullsave
-        bases = viewbase.get_all_bases_from_save(save)
+        try:
+            fullsave = viewbase.load_full_save(file_path)
+            save = viewbase.load_save(file_path)
+        except FileNotFoundError:
+            pass
+        else:
+            self.save = save
+            self.fullsave = fullsave
+            bases = viewbase.get_all_bases_from_save(save)
 
-        self.edit.active_idx = None
-        self.edit.load_bases(bases)
-        self.edit.load_base(0)
+            self.edit.active_idx = None
+            self.edit.load_bases(bases)
+            self.edit.load_base(0)
 
-        # add to recent files
-        if file_path in self.settings['recent_files']:
-            self.settings['recent_files'].remove(file_path)
-        self.settings['recent_files'].insert(0, file_path)
+            # add to recent files
+            if file_path in self.settings['recent_files']:
+                self.settings['recent_files'].remove(file_path)
+            self.settings['recent_files'].insert(0, file_path)
 
-        if len(self.settings['recent_files']) > MAX_RECENT_FILES:
-            self.settings['recent_files'].pop()
+            if len(self.settings['recent_files']) > MAX_RECENT_FILES:
+                self.settings['recent_files'].pop()
 
-        self.save_settings()
+            self.save_settings()
 
-        self.update_menu()
+            self.update_menu()
 
     def save_file_dialog(self):
         file_path = filedialog.asksaveasfilename(title="Save File", filetypes=[("SAV", "*.sav")])
