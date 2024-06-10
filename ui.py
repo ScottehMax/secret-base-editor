@@ -1,6 +1,5 @@
 import json
 import os
-import os.path
 import signal
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -228,11 +227,12 @@ class TrainerEdit(tk.Frame):
             return
         species = self.speciesVar.get()
 
-        if os.path.exists(f"sprites/{species.lower()}.png"):
+        try:
             self.partyButtons.btns[index].set_image(f"sprites/{species.lower()}.png")
-        else:
+        except:
             self.partyButtons.btns[index].set_image("sprites/none.png")
-        self.partyButtons.btns[index].draw()
+        finally:
+            self.partyButtons.btns[index].draw()
 
     def set_party_display(self, index):
         # first save all the old ones to the party
