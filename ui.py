@@ -489,7 +489,12 @@ class App(tk.Tk):
 
     def on_treeview_click(self, event):
         item = self.treeview.selection()[0]
-        self.edit.load_base(self.treeview.index(item))
+        
+        # Catches an exception if no save file has been selected.
+        try:
+            self.edit.load_base(self.treeview.index(item))
+        except AttributeError:
+            pass
 
     def open_file_dialog(self):
         file_path = filedialog.askopenfilename(title="Open File", filetypes=[("SAV", "*.sav")])
