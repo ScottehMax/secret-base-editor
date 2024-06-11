@@ -509,23 +509,39 @@ class App(tk.Tk):
         else:
             self.save = save
             self.fullsave = fullsave
-            bases = viewbase.get_all_bases_from_save(save)
 
-            self.edit.active_idx = None
-            self.edit.load_bases(bases)
-            self.edit.load_base(0)
+            try:
+                del version
+            except UnboundLocalError:
+                pass
 
-            # add to recent files
-            if file_path in self.settings['recent_files']:
-                self.settings['recent_files'].remove(file_path)
-            self.settings['recent_files'].insert(0, file_path)
+            version = viewbase.getVersion(save)
+            
+            match version:
+                case 'emerald':
+                    bases = viewbase.get_all_bases_from_save(save)
 
-            if len(self.settings['recent_files']) > MAX_RECENT_FILES:
-                self.settings['recent_files'].pop()
+                    self.edit.active_idx = None
+                    self.edit.load_bases(bases)
+                    self.edit.load_base(0)
 
-            self.save_settings()
+                    # add to recent files
+                    if file_path in self.settings['recent_files']:
+                        self.settings['recent_files'].remove(file_path)
+                    self.settings['recent_files'].insert(0, file_path)
 
-            self.update_menu()
+                    if len(self.settings['recent_files']) > MAX_RECENT_FILES:
+                        self.settings['recent_files'].pop()
+
+                    self.save_settings()
+
+                    self.update_menu()
+                case 'ruby/sapphire':
+                    print("Ruby/Sapphire not supported yet.")
+                case 'firered/leafgreen':
+                    print("Fire Red/Leaf Green do not have secret bases.")
+                case _:
+                    print("You should not be here.")
 
     def save_file_dialog(self):
         file_path = filedialog.asksaveasfilename(title="Save File", filetypes=[("SAV", "*.sav")])

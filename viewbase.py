@@ -398,6 +398,26 @@ def get_base_from_save(save):
             return secret_base
 
 
+def getVersion(save):
+    version = None
+
+    # The save index value is the same across all sections.
+    save_index = save.sections[0].save_index
+
+    # Find where section section 0 is using the save index and extract the game code.
+    gameCode = int(save.sections[save_index % 14].data[172:176][0])
+
+    match gameCode:
+        case 0:
+            version = 'ruby/sapphire'
+        case 1:
+            version = 'firered/leafgreen'
+        case _:
+            version = 'emerald'
+
+    return version
+
+
 def get_all_bases_from_save(save):
     bases = []
 
