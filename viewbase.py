@@ -420,10 +420,15 @@ def getVersion(save):
 
 def get_all_bases_from_save(save):
     bases = []
-
     split_base = b''
+    save_index = save.sections[0].save_index
 
-    for section in save.sections:
+    # Secret Base data is split between sections 2 and 3.
+    sections = []
+    sections.append(save.sections[(save_index + 2) % 14])
+    sections.append(save.sections[(save_index + 3) % 14])
+
+    for section in sections:
         data = BytesIO(section.data)
         checksum = checksum_block(data, section.section_id)
         if checksum != section.checksum:
@@ -431,25 +436,27 @@ def get_all_bases_from_save(save):
             print("Expected", section.checksum, "but got", checksum)
             continue
 
-        if section.section_id == 2:
-            for i in range(7):
-                data = BytesIO(section.data[0xB1C + (160*i):])
+        match section.section_id:
+            case 2:
+                for i in range(7):
+                    data = BytesIO(section.data[0xB1C + (160*i):])
+                    secret_base = read_secret_base(data)
+                    bases.append(secret_base)
+
+                # The eight secret base data is split between the sections.
+                split_base += section.data[0xF7C:0xF7C+4]
+            case 3:
+                split_base += section.data[0:156]
+                data = BytesIO(split_base)
                 secret_base = read_secret_base(data)
                 bases.append(secret_base)
 
-            # the eighth one is split across section 2 and 3...
-            split_base += section.data[0xF7C:0xF7C+4]
-
-        if section.section_id == 3:
-            split_base += section.data[0:156]
-            data = BytesIO(split_base)
-            secret_base = read_secret_base(data)
-            bases.append(secret_base)
-
-            for i in range(12):
-                data = BytesIO(section.data[0x9C + (160*i):])
-                secret_base = read_secret_base(data)
-                bases.append(secret_base)
+                for i in range(12):
+                    data = BytesIO(section.data[0x9C + (160*i):])
+                    secret_base = read_secret_base(data)
+                    bases.append(secret_base)
+            case _:
+                print("Wrong save file section.")
 
     return bases
 
