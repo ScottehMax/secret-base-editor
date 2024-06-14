@@ -418,7 +418,7 @@ def getVersion(save):
     return version
 
 
-def get_all_bases_from_save(save):
+def get_all_bases_from_save(save, version):
     bases = []
     split_base = b''
     save_index = save.sections[0].save_index
@@ -427,6 +427,20 @@ def get_all_bases_from_save(save):
     sections = []
     sections.append(save.sections[(save_index + 2) % 14])
     sections.append(save.sections[(save_index + 3) % 14])
+
+    # Account for save file differences between emerald and ruby/sapphire.
+    if version == 'emerald':
+        section_2_start = 0xB1C
+        base_8_start = 0x7FC
+        section_2_end = 4
+        section_3_start = 156
+        section_3_cont = 0x9C
+    else:
+        section_2_start = 0xA88
+        base_8_start = 0xEE8
+        section_2_end = 152
+        section_3_start = 8
+        section_3_cont = 0x8
 
     for section in sections:
         data = BytesIO(section.data)
@@ -439,20 +453,20 @@ def get_all_bases_from_save(save):
         match section.section_id:
             case 2:
                 for i in range(7):
-                    data = BytesIO(section.data[0xB1C + (160*i):])
+                    data = BytesIO(section.data[section_2_start + (160*i):])
                     secret_base = read_secret_base(data)
                     bases.append(secret_base)
 
                 # The eight secret base data is split between the sections.
-                split_base += section.data[0xF7C:0xF7C+4]
+                split_base += section.data[base_8_start:base_8_start+section_2_end]
             case 3:
-                split_base += section.data[0:156]
+                split_base += section.data[0:section_3_start]
                 data = BytesIO(split_base)
                 secret_base = read_secret_base(data)
                 bases.append(secret_base)
 
                 for i in range(12):
-                    data = BytesIO(section.data[0x9C + (160*i):])
+                    data = BytesIO(section.data[section_3_cont + (160*i):])
                     secret_base = read_secret_base(data)
                     bases.append(secret_base)
             case _:

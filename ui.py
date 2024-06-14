@@ -509,17 +509,11 @@ class App(tk.Tk):
         else:
             self.save = save
             self.fullsave = fullsave
-
-            try:
-                del version
-            except UnboundLocalError:
-                pass
-
             version = viewbase.getVersion(save)
             
             match version:
-                case 'emerald':
-                    bases = viewbase.get_all_bases_from_save(save)
+                case 'emerald' | 'ruby/sapphire':
+                    bases = viewbase.get_all_bases_from_save(save, version)
 
                     self.edit.active_idx = None
                     self.edit.load_bases(bases)
@@ -536,12 +530,11 @@ class App(tk.Tk):
                     self.save_settings()
 
                     self.update_menu()
-                case 'ruby/sapphire':
-                    print("Ruby/Sapphire not supported yet.")
                 case 'firered/leafgreen':
                     print("Fire Red/Leaf Green do not have secret bases.")
                 case _:
                     print("You should not be here.")
+
 
     def save_file_dialog(self):
         file_path = filedialog.asksaveasfilename(title="Save File", filetypes=[("SAV", "*.sav")])
