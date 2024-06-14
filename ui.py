@@ -178,8 +178,8 @@ class TrainerEdit(tk.Frame):
         if self.active_idx is not None:
             # save the current base
             self.bases[self.active_idx]['trainer_name'] = self.trainerVar.get()
-            self.bases[self.active_idx]['id'] = int(self.idVar.get())
-            self.bases[self.active_idx]['sid'] = int(self.sidVar.get())
+            self.bases[self.active_idx]['id'] = self.idVar.get()
+            self.bases[self.active_idx]['sid'] = self.sidVar.get()
             self.bases[self.active_idx]['gender'] = 0 if self.genderVar.get() == "Male" else 1
             self.bases[self.active_idx]['party'] = self.party
             self.bases[self.active_idx]['secret_base_id'] = self.baseVar.get()
@@ -194,7 +194,7 @@ class TrainerEdit(tk.Frame):
         self.sidVar.set(baseDict['sid'])
 
         # class is lowest byte of ID mod 5, +5 if female
-        classIndex = baseDict['id'] & 0xFF % 5
+        classIndex = int(baseDict['id']) & 0xFF % 5
         classIndex += baseDict['gender'] * 5
         self.classVar.set(TRAINER_CLASSES[classIndex])
 

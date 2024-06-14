@@ -269,8 +269,8 @@ def read_secret_base(f):
 
     trainer_name = decode_text(f.read(PLAYER_NAME_LENGTH)).strip()
     trainer_id = f.read(TRAINER_ID_LENGTH)
-    ID = struct.unpack("<I", trainer_id)[0] & 0xFFFF
-    SID = struct.unpack("<I", trainer_id)[0] >> 16
+    ID = str(struct.unpack("<I", trainer_id)[0] & 0xFFFF).zfill(5)
+    SID = str(struct.unpack("<I", trainer_id)[0] >> 16).zfill(5)
 
     language = struct.unpack("<B", f.read(1))[0]
     num_secret_bases_received = struct.unpack("<H", f.read(2))[0]
@@ -323,7 +323,7 @@ def export_secret_base(secret_base: dict) -> bytes:
     data += struct.pack("<B", info)
     # print(secret_base['trainer_name'])
     data += encode_text(secret_base["trainer_name"]).ljust(PLAYER_NAME_LENGTH, b"\xFF")
-    trainer_id = (secret_base["sid"] << 16) | secret_base["id"]
+    trainer_id = (int(secret_base["sid"]) << 16) | int(secret_base["id"])
     data += struct.pack("<I", trainer_id)
 
     data += struct.pack("<B", secret_base["language"])
