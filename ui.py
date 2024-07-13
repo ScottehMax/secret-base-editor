@@ -178,8 +178,8 @@ class TrainerEdit(tk.Frame):
         if self.active_idx is not None:
             # save the current base
             self.bases[self.active_idx]['trainer_name'] = self.trainerVar.get()
-            self.bases[self.active_idx]['id'] = int(self.idVar.get())
-            self.bases[self.active_idx]['sid'] = int(self.sidVar.get())
+            self.bases[self.active_idx]['id'] = self.idVar.get()
+            self.bases[self.active_idx]['sid'] = self.sidVar.get()
             self.bases[self.active_idx]['gender'] = 0 if self.genderVar.get() == "Male" else 1
             self.bases[self.active_idx]['party'] = self.party
             self.bases[self.active_idx]['secret_base_id'] = self.baseVar.get()
@@ -194,7 +194,7 @@ class TrainerEdit(tk.Frame):
         self.sidVar.set(baseDict['sid'])
 
         # class is lowest byte of ID mod 5, +5 if female
-        classIndex = baseDict['id'] & 0xFF % 5
+        classIndex = int(baseDict['id']) & 0xFF % 5
         classIndex += baseDict['gender'] * 5
         self.classVar.set(TRAINER_CLASSES[classIndex])
 
@@ -226,14 +226,19 @@ class TrainerEdit(tk.Frame):
         if self.state == 'switching':
             return
         species = self.speciesVar.get()
-        self.partyButtons.btns[index].set_image(f"sprites/{species.lower()}.png")
-        self.partyButtons.btns[index].draw()
+
+        try:
+            self.partyButtons.btns[index].set_image(f"sprites/{species.lower()}.png")
+        except:
+            self.partyButtons.btns[index].set_image("sprites/none.png")
+        finally:
+            self.partyButtons.btns[index].draw()
 
     def set_party_display(self, index):
         # first save all the old ones to the party
         if self.old_index is not None:
             self.party[self.old_index]['species'] = self.speciesVar.get()
-            self.party[self.old_index]['personality'] = int(self.pidVar.get())
+            self.party[self.old_index]['personality'] = self.pidVar.get()
             self.party[self.old_index]['level'] = int(self.levelVar.get())
             self.party[self.old_index]['held_item'] = self.itemVar.get()
             self.party[self.old_index]['evs'] = int(self.evsVar.get())
@@ -484,34 +489,52 @@ class App(tk.Tk):
 
     def on_treeview_click(self, event):
         item = self.treeview.selection()[0]
-        self.edit.load_base(self.treeview.index(item))
+        
+        # Catches an exception if no save file has been selected.
+        try:
+            self.edit.load_base(self.treeview.index(item))
+        except AttributeError:
+            pass
 
     def open_file_dialog(self):
         file_path = filedialog.askopenfilename(title="Open File", filetypes=[("SAV", "*.sav")])
         self.open_file(file_path)
 
     def open_file(self, file_path):
-        fullsave = viewbase.load_full_save(file_path)
-        save = viewbase.load_save(file_path)
-        self.save = save
-        self.fullsave = fullsave
-        bases = viewbase.get_all_bases_from_save(save)
+        try:
+            fullsave = viewbase.load_full_save(file_path)
+            save = viewbase.load_save(file_path)
+        except FileNotFoundError:
+            pass
+        else:
+            self.save = save
+            self.fullsave = fullsave
+            version = viewbase.getVersion(save)
+            
+            match version:
+                case 'emerald' | 'ruby/sapphire':
+                    bases = viewbase.get_all_bases_from_save(save, version)
 
-        self.edit.active_idx = None
-        self.edit.load_bases(bases)
-        self.edit.load_base(0)
+                    self.edit.active_idx = None
+                    self.edit.load_bases(bases)
+                    self.edit.load_base(0)
 
-        # add to recent files
-        if file_path in self.settings['recent_files']:
-            self.settings['recent_files'].remove(file_path)
-        self.settings['recent_files'].insert(0, file_path)
+                    # add to recent files
+                    if file_path in self.settings['recent_files']:
+                        self.settings['recent_files'].remove(file_path)
+                    self.settings['recent_files'].insert(0, file_path)
 
-        if len(self.settings['recent_files']) > MAX_RECENT_FILES:
-            self.settings['recent_files'].pop()
+                    if len(self.settings['recent_files']) > MAX_RECENT_FILES:
+                        self.settings['recent_files'].pop()
 
-        self.save_settings()
+                    self.save_settings()
 
-        self.update_menu()
+                    self.update_menu()
+                case 'firered/leafgreen':
+                    print("Fire Red/Leaf Green do not have secret bases.")
+                case _:
+                    print("You should not be here.")
+
 
     def save_file_dialog(self):
         file_path = filedialog.asksaveasfilename(title="Save File", filetypes=[("SAV", "*.sav")])

@@ -164,10 +164,13 @@ def read_party(f):
     party = [{} for _ in range(PARTY_SIZE)]
     for i in range(PARTY_SIZE):
         personality = struct.unpack("<I", f.read(4))[0]
-        party[i]["personality"] = personality
+        party[i]["personality"] = f"{personality:X}".zfill(8)
     for i in range(PARTY_SIZE):
         moves = [struct.unpack("<H", f.read(2))[0] for _ in range(MAX_MON_MOVES)]
-        moves = [MOVES[move] for move in moves]
+        try:
+            moves = [MOVES[move] for move in moves]
+        except:
+            pass
         party[i]["moves"] = moves
     for i in range(PARTY_SIZE):
         species = struct.unpack("<H", f.read(2))[0]
@@ -187,10 +190,13 @@ def read_party(f):
 def export_party(party: dict) -> bytes:
     data = b""
     for mon in party:
-        data += struct.pack("<I", mon["personality"])
+        data += struct.pack("<I", int(mon["personality"], 16))
     for mon in party:
         for move in mon["moves"]:
-            data += struct.pack("<H", MOVES.index(move))
+            try:
+                data += struct.pack("<H", MOVES.index(move))
+            except:
+                data += struct.pack("<H", MOVES.index('None'))
     for mon in party:
         data += struct.pack("<H", POKEMON.index(mon["species"]))
     for mon in party:
@@ -263,8 +269,8 @@ def read_secret_base(f):
 
     trainer_name = decode_text(f.read(PLAYER_NAME_LENGTH)).strip()
     trainer_id = f.read(TRAINER_ID_LENGTH)
-    ID = struct.unpack("<I", trainer_id)[0] & 0xFFFF
-    SID = struct.unpack("<I", trainer_id)[0] >> 16
+    ID = str(struct.unpack("<I", trainer_id)[0] & 0xFFFF).zfill(5)
+    SID = str(struct.unpack("<I", trainer_id)[0] >> 16).zfill(5)
 
     language = struct.unpack("<B", f.read(1))[0]
     num_secret_bases_received = struct.unpack("<H", f.read(2))[0]
@@ -317,7 +323,7 @@ def export_secret_base(secret_base: dict) -> bytes:
     data += struct.pack("<B", info)
     # print(secret_base['trainer_name'])
     data += encode_text(secret_base["trainer_name"]).ljust(PLAYER_NAME_LENGTH, b"\xFF")
-    trainer_id = (secret_base["sid"] << 16) | secret_base["id"]
+    trainer_id = (int(secret_base["sid"]) << 16) | int(secret_base["id"])
     data += struct.pack("<I", trainer_id)
 
     data += struct.pack("<B", secret_base["language"])
@@ -392,12 +398,51 @@ def get_base_from_save(save):
             return secret_base
 
 
-def get_all_bases_from_save(save):
+def getVersion(save):
+    version = None
+
+    # The save index value is the same across all sections.
+    save_index = save.sections[0].save_index
+
+    # Find where section section 0 is using the save index and extract the game code.
+    gameCode = int(save.sections[save_index % 14].data[172:176][0])
+
+    match gameCode:
+        case 0:
+            version = 'ruby/sapphire'
+        case 1:
+            version = 'firered/leafgreen'
+        case _:
+            version = 'emerald'
+
+    return version
+
+
+def get_all_bases_from_save(save, version):
     bases = []
-
     split_base = b''
+    save_index = save.sections[0].save_index
 
-    for section in save.sections:
+    # Secret Base data is split between sections 2 and 3.
+    sections = []
+    sections.append(save.sections[(save_index + 2) % 14])
+    sections.append(save.sections[(save_index + 3) % 14])
+
+    # Account for save file differences between emerald and ruby/sapphire.
+    if version == 'emerald':
+        section_2_start = 0xB1C
+        base_8_start = 0x7FC
+        section_2_end = 4
+        section_3_start = 156
+        section_3_cont = 0x9C
+    else:
+        section_2_start = 0xA88
+        base_8_start = 0xEE8
+        section_2_end = 152
+        section_3_start = 8
+        section_3_cont = 0x8
+
+    for section in sections:
         data = BytesIO(section.data)
         checksum = checksum_block(data, section.section_id)
         if checksum != section.checksum:
@@ -405,25 +450,27 @@ def get_all_bases_from_save(save):
             print("Expected", section.checksum, "but got", checksum)
             continue
 
-        if section.section_id == 2:
-            for i in range(7):
-                data = BytesIO(section.data[0xB1C + (160*i):])
+        match section.section_id:
+            case 2:
+                for i in range(7):
+                    data = BytesIO(section.data[section_2_start + (160*i):])
+                    secret_base = read_secret_base(data)
+                    bases.append(secret_base)
+
+                # The eight secret base data is split between the sections.
+                split_base += section.data[base_8_start:base_8_start+section_2_end]
+            case 3:
+                split_base += section.data[0:section_3_start]
+                data = BytesIO(split_base)
                 secret_base = read_secret_base(data)
                 bases.append(secret_base)
 
-            # the eighth one is split across section 2 and 3...
-            split_base += section.data[0xF7C:0xF7C+4]
-
-        if section.section_id == 3:
-            split_base += section.data[0:156]
-            data = BytesIO(split_base)
-            secret_base = read_secret_base(data)
-            bases.append(secret_base)
-
-            for i in range(12):
-                data = BytesIO(section.data[0x9C + (160*i):])
-                secret_base = read_secret_base(data)
-                bases.append(secret_base)
+                for i in range(12):
+                    data = BytesIO(section.data[section_3_cont + (160*i):])
+                    secret_base = read_secret_base(data)
+                    bases.append(secret_base)
+            case _:
+                print("Wrong save file section.")
 
     return bases
 
