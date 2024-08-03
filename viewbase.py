@@ -431,7 +431,7 @@ def get_all_bases_from_save(save, version):
     # Account for save file differences between emerald and ruby/sapphire.
     if version == 'emerald':
         section_2_start = 0xB1C
-        base_8_start = 0x7FC
+        base_8_start = 0xF7C
         section_2_end = 4
         section_3_start = 156
         section_3_cont = 0x9C
