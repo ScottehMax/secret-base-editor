@@ -2,11 +2,23 @@ import struct
 from copy import deepcopy
 from hashlib import md5
 from io import BytesIO
+from enum import IntEnum
 
 from baseinfo import BASE_NAMES, BASE_NAMES_REV
 from decors import DECORATIONS
 from items import ITEMS
 from pokemon import MOVES, POKEMON
+
+
+class Language(IntEnum):
+    NONE = 0
+    JAPANESE = 1
+    ENGLISH = 2
+    FRENCH = 3
+    ITALIAN = 4
+    GERMAN = 5
+    KOREAN = 6  # unused
+    SPANISH = 7
 
 
 PARTY_SIZE = 6
@@ -243,6 +255,25 @@ ENCODING_TABLE = [
     ":", "Ä", "Ö", "Ü", "ä", "ö", "ü", " ", " ", " ", " ", " ", " ", " ", " ", " ",
 ]
 
+ENCODING_TABLE_JP = [
+    " ", "あ", "い", "う", "え", "お", "か", "き", "く", "け", "こ", "さ", "し", "す", "せ", "そ",
+    "た", "ち", "つ", "て", "と", "な", "に", "ぬ", "ね", "の", "は", "ひ", "ふ", "へ", "ほ", "ま",
+    "み", "む", "め", "も", "や", "ゆ", "よ", "ら", "り", "る", "れ", "ろ", "わ", "を", "ん", "ぁ",
+    "ぃ", "ぅ", "ぇ", "ぉ", "ゃ", "ゅ", "ょ", "が", "ぎ", "ぐ", "げ", "ご", "ざ", "じ", "ず", "ぜ",
+    "ぞ", "だ", "ぢ", "づ", "で", "ど", "ば", "び", "ぶ", "べ", "ぼ", "ぱ", "ぴ", "ぷ", "ぺ", "ぽ",
+    "っ", "ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク", "ケ", "コ", "サ", "シ", "ス", "セ", "ソ",
+    "タ", "チ", "ツ", "テ", "ト", "ナ", "ニ", "ヌ", "ネ", "ノ", "ハ", "ヒ", "フ", "ヘ", "ホ", "マ",
+    "ミ", "ム", "メ", "モ", "ヤ", "ユ", "ヨ", "ラ", "リ", "ル", "レ", "ロ", "ワ", "ヲ", "ン", "ァ",
+    "ィ", "ゥ", "ェ", "ォ", "ャ", "ュ", "ョ", "ガ", "ギ", "グ", "ゲ", "ゴ", "ザ", "ジ", "ズ", "ゼ",
+    "ゾ", "ダ", "ヂ", "ヅ", "デ", "ド", "バ", "ビ", "ブ", "ベ", "ボ", "パ", "ピ", "プ", "ペ", "ポ",
+    "ッ", "０", "１", "２", "３", "４", "５", "６", "７", "８", "９", "！", "？", "。", "ー", "・",
+    "‥", "『", "』", "「", "」", "♂", "♀", "円", "．", "×", "／", "Ａ", "Ｂ", "Ｃ", "Ｄ", "Ｅ",
+    "Ｆ", "Ｇ", "Ｈ", "Ｉ", "Ｊ", "Ｋ", "Ｌ", "Ｍ", "Ｎ", "Ｏ", "Ｐ", "Ｑ", "Ｒ", "Ｓ", "Ｔ", "Ｕ",
+    "Ｖ", "Ｗ", "Ｘ", "Ｙ", "Ｚ", "ａ", "ｂ", "ｃ", "ｄ", "ｅ", "ｆ", "ｇ", "ｈ", "ｉ", "ｊ", "ｋ",
+    "ｌ", "ｍ", "ｎ", "ｏ", "ｐ", "ｑ", "ｒ", "ｓ", "ｔ", "ｕ", "ｖ", "ｗ", "ｘ", "ｙ", "ｚ", "►",
+    "：", "Ä", "Ö", "Ü", "ä", "ö", "ü", "↑", "↓", "←", " ", " ", " ", " ", " ", " ",
+]
+
 
 PLAYER_NAME_LENGTH = 7
 TRAINER_ID_LENGTH = 4
@@ -250,12 +281,20 @@ DECOR_MAX_SECRET_BASE = 16
 MAP_OFFSET = 7
 
 
-def decode_text(text):
-    return "".join(ENCODING_TABLE[c] for c in text)
+def decode_text(text, language=Language.ENGLISH):
+    if language == Language.JAPANESE:
+        table = ENCODING_TABLE_JP
+    else:
+        table = ENCODING_TABLE
+    return "".join(table[c] for c in text)
 
 
-def encode_text(text):
-    return bytes(ENCODING_TABLE.index(c) for c in text)
+def encode_text(text, language=Language.ENGLISH):
+    if language == Language.JAPANESE:
+        table = ENCODING_TABLE_JP
+    else:
+        table = ENCODING_TABLE
+    return bytes(table.index(c) for c in text)
 
 
 def read_secret_base(f):
@@ -267,12 +306,13 @@ def read_secret_base(f):
     battled_owner_today = (info >> 5) & 0b1
     registry_status = (info >> 6) & 0b11
 
-    trainer_name = decode_text(f.read(PLAYER_NAME_LENGTH)).strip()
+    trainer_name_bytes = f.read(PLAYER_NAME_LENGTH)
     trainer_id = f.read(TRAINER_ID_LENGTH)
     ID = str(struct.unpack("<I", trainer_id)[0] & 0xFFFF).zfill(5)
     SID = str(struct.unpack("<I", trainer_id)[0] >> 16).zfill(5)
 
-    language = struct.unpack("<B", f.read(1))[0]
+    language = Language(struct.unpack("<B", f.read(1))[0])
+    trainer_name = decode_text(trainer_name_bytes, language).strip()
     num_secret_bases_received = struct.unpack("<H", f.read(2))[0]
     num_times_entered = struct.unpack("<B", f.read(1))[0]
     unused = struct.unpack("<B", f.read(1))[0]
@@ -444,11 +484,15 @@ def get_all_bases_from_save(save, version):
 
     for section in sections:
         data = BytesIO(section.data)
-        checksum = checksum_block(data, section.section_id)
-        if checksum != section.checksum:
+        try:
+            checksum = checksum_block(data, section.section_id)
+            if checksum != section.checksum:
+                print("Checksum failed for section", section.section_id)
+                print("Expected", section.checksum, "but got", checksum)
+                continue
+        except:
             print("Checksum failed for section", section.section_id)
-            print("Expected", section.checksum, "but got", checksum)
-            continue
+            pass
 
         match section.section_id:
             case 2:
