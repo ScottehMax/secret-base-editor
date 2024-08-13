@@ -362,7 +362,7 @@ def export_secret_base(secret_base: dict) -> bytes:
     )
     data += struct.pack("<B", info)
     # print(secret_base['trainer_name'])
-    data += encode_text(secret_base["trainer_name"]).ljust(PLAYER_NAME_LENGTH, b"\xFF")
+    data += encode_text(secret_base["trainer_name"], secret_base["language"]).ljust(PLAYER_NAME_LENGTH, b"\xFF")
     trainer_id = (int(secret_base["sid"]) << 16) | int(secret_base["id"])
     data += struct.pack("<I", trainer_id)
 
