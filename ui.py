@@ -326,10 +326,7 @@ class TrainerEdit(tk.Frame):
     def save_all_bases(self, folder_path):
         # get folder, save all to that folder under fn "ID - Trainer Name - hash.json"
         for i in range(20):
-            lh = layout_hash(self.bases[i])
-            th = team_hash(self.bases[i])
-            fn = f"{folder_path}/{self.bases[i]['trainer_name']} ({self.bases[i]['id']}) - {lh} - {th}.json"
-            self.save_base(i, fn)
+            self.save_base(i, folder_path)
 
     def import_base(self, fn):
         with open(fn, 'r') as f:

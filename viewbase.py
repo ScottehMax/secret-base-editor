@@ -133,7 +133,7 @@ def team_hash(base):
     team = base['party']
     team = [
         [
-            mon['personality'],
+            int(mon['personality'], 16) if isinstance(mon['personality'], str) else mon['personality'],
             POKEMON.index(mon['species']),
             ITEMS.index(mon['held_item']),
             mon['level'],
