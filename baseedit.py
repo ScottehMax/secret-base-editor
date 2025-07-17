@@ -89,6 +89,7 @@ class EditCanvas(tk.Frame):
         self.scale = scale
         self.mode = "normal"
         self.selected_decor_idx = None
+        self.drag_offset = (0, 0)  # Offset between click and top-left corner of decoration
 
         self.add_controls()
 
@@ -138,7 +139,9 @@ class EditCanvas(tk.Frame):
         self.controls.grid(row=0, column=0)
 
     def set_decor(self, decor):
-        if self.base is None:
+        if self.base is None or self.selected_decor_idx is None:
+            return
+        if self.selected_decor_idx < 0 or self.selected_decor_idx >= len(self.base['decorations']):
             return
         self.base['decorations'][self.selected_decor_idx] = decor
         self.draw()
@@ -169,6 +172,9 @@ class EditCanvas(tk.Frame):
     def select(self, idx):
         if self.base is None:
             return
+        if idx is None or idx < 0 or idx >= len(self.base['decorations']):
+            self.selected_decor_idx = None
+            return
 
         self.selected_decor_idx = idx
         self.decorVar.set(NAMES[self.base['decorations'][idx]])
@@ -195,7 +201,7 @@ class EditCanvas(tk.Frame):
         if self.base is None:
             return
         x, y = event.x, event.y
-        t_x, t_y = x // (16 * self.scale), y // (16 * self.scale)
+        tile_size = 16 * self.scale
         for i in range(len(self.base['decorations'])-1, -1, -1):
             decor = self.base['decorations'][i]
             if decor == "DECOR_NONE":
@@ -205,9 +211,21 @@ class EditCanvas(tk.Frame):
             x_pos = (i_x_pos + x_offset)
             y_pos = (i_y_pos + y_offset)
 
-            if x_pos == t_x and y_pos == t_y:
+            width, height = SIZES[decor]
+            if SIZES[decor] == (2, 2) and decor.endswith("DOLL"):
+                extra_x = -16
+            else:
+                extra_x = 0
+            deco_x0 = (x_pos) * tile_size + extra_x
+            deco_y0 = (y_pos) * tile_size
+            deco_x1 = deco_x0 + (16 * width) * self.scale
+            deco_y1 = deco_y0 + (16 * height) * self.scale
+            if deco_x0 <= x < deco_x1 and deco_y0 <= y < deco_y1:
                 self.selected_decor_idx = i
-                print(f"Selected {decor} at {i_x_pos}, {i_y_pos}")
+                # Store the grid cell where drag started
+                self._drag_start_grid = (x // tile_size, y // tile_size)
+                self._drag_start_decor_pos = (i_x_pos, i_y_pos)
+                print(f"Selected {decor} at {i_x_pos}, {i_y_pos}, drag started at grid {self._drag_start_grid}")
                 self.select(i)
                 self.draw()
                 return
@@ -237,22 +255,34 @@ class EditCanvas(tk.Frame):
             return
 
     def handle_drag(self, event):
-        if self.base is None:
+        if self.base is None or self.selected_decor_idx is None:
             return
-        if self.selected_decor_idx is None:
+        if self.selected_decor_idx < 0 or self.selected_decor_idx >= len(self.base['decorations']):
             return
 
         x, y = event.x, event.y
-        t_x, t_y = x // (16 * self.scale), y // (16 * self.scale)
+        tile_size = 16 * self.scale
+        # Get the grid cell under the mouse pointer
+        grid_x = x // tile_size
+        grid_y = y // tile_size
 
-        x_offset, y_offset = get_decoration_offset(self.base['decorations'][self.selected_decor_idx])
-        old_pos = self.base['decoration_positions'][self.selected_decor_idx]
-
-        # move the selected decor to the new position
-        self.base['decoration_positions'][self.selected_decor_idx] = (t_x - x_offset, t_y - y_offset)
-        if old_pos == self.base['decoration_positions'][self.selected_decor_idx]:
+        # Get the grid cell where drag started and the original decor position
+        start_grid = getattr(self, '_drag_start_grid', None)
+        start_decor_pos = getattr(self, '_drag_start_decor_pos', None)
+        if start_grid is None or start_decor_pos is None:
             return
 
+        # Only move if the grid cell under the mouse is different from the drag start cell
+        dx = grid_x - start_grid[0]
+        dy = grid_y - start_grid[1]
+        new_x = start_decor_pos[0] + dx
+        new_y = start_decor_pos[1] + dy
+
+        old_pos = self.base['decoration_positions'][self.selected_decor_idx]
+        new_pos = (int(new_x), int(new_y))
+        if old_pos == new_pos:
+            return
+        self.base['decoration_positions'][self.selected_decor_idx] = new_pos
         self.select(self.selected_decor_idx)
         self.draw()
 
@@ -364,7 +394,14 @@ def draw_base(base, output_filename):
 if __name__ == '__main__':
     root = tk.Tk()
 
+    # Minimal sample base object for testing
+    sample_base = {
+        'secret_base_id': list(BASE_NAMES_REV.keys())[0],
+        'decorations': ["DECOR_TV", "DECOR_SMALL_CHAIR", "DECOR_SMALL_DESK"],
+        'decoration_positions': [(5, 5), (10, 10), (15, 15)]
+    }
+
     canvas = EditCanvas(root)
-    canvas.canvas.pack()
-    canvas.load_and_draw(base)
+    canvas.grid(row=0, column=0, sticky='nsew')
+    canvas.load_and_draw(sample_base)
     root.mainloop()
