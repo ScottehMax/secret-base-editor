@@ -523,26 +523,44 @@ def get_all_bases_from_save(save, version):
     return bases
 
 
-def insert_base_to_section(section, secret_base, index):
-    if index < 8:
-        section.data = section.data[:0xB1C + (160*index)] + export_secret_base(secret_base) + section.data[0xB1C + (160*index) + len(export_secret_base(secret_base)):]
+def insert_base_to_section(section, secret_base, index, version):
+    # Account for save file differences between emerald and ruby/sapphire.
+    if version == 'emerald':
+        section_2_start = 0xB1C
+        section_3_cont = 0x9C
     else:
-        section.data = section.data[:0x9C + (160*(index-8))] + export_secret_base(secret_base) + section.data[0x9C + (160*(index-8)) + len(export_secret_base(secret_base)):]
+        section_2_start = 0xA88
+        section_3_cont = 0x8
+
+    if index < 8:
+        section.data = section.data[:section_2_start + (160*index)] + export_secret_base(secret_base) + section.data[section_2_start + (160*index) + len(export_secret_base(secret_base)):]
+    else:
+        section.data = section.data[:section_3_cont + (160*(index-8))] + export_secret_base(secret_base) + section.data[section_3_cont + (160*(index-8)) + len(export_secret_base(secret_base)):]
     section.fix_checksum()
     return section
 
 
-def insert_split_base_to_section(s2, s3, secret_base):
+def insert_split_base_to_section(s2, s3, secret_base, version):
+    # Account for save file differences between emerald and ruby/sapphire.
+    if version == 'emerald':
+        base_8_start = 0xF7C
+        section_2_end = 4
+        section_3_start = 156
+    else:
+        base_8_start = 0xEE8
+        section_2_end = 152
+        section_3_start = 8
+
     # index isn't necessary since it's always 8
     data = export_secret_base(secret_base)
-    s2.data = s2.data[:0xF7C] + data[:4] + s2.data[0xF7C+4:]
-    s3.data = data[4:] + s3.data[156:]
+    s2.data = s2.data[:base_8_start] + data[:section_2_end] + s2.data[base_8_start+section_2_end:]
+    s3.data = data[section_2_end:] + s3.data[section_3_start:]
     s2.fix_checksum()
     s3.fix_checksum()
     return s2, s3
 
 
-def insert_base_to_save(base_save, secret_base, index):
+def insert_base_to_save(base_save, secret_base, index, version):
     save = deepcopy(base_save)
     i = 0
     s2idx, s3idx = None, None
@@ -551,9 +569,9 @@ def insert_base_to_save(base_save, secret_base, index):
         section = save.sections[i]
 
         if index < 7 and section.section_id == 2:
-            section = insert_base_to_section(section, secret_base, index)
+            section = insert_base_to_section(section, secret_base, index, version)
         if index >= 8 and section.section_id == 3:
-            section = insert_base_to_section(section, secret_base, index)
+            section = insert_base_to_section(section, secret_base, index, version)
 
         if index == 7:
             if section.section_id == 2:
@@ -565,7 +583,7 @@ def insert_base_to_save(base_save, secret_base, index):
 
     if index == 7:
         # really annoying
-        s2, s3 = insert_split_base_to_section(save.sections[s2idx], save.sections[s3idx], secret_base)
+        s2, s3 = insert_split_base_to_section(save.sections[s2idx], save.sections[s3idx], secret_base, version)
         save.sections[s2idx] = s2
         save.sections[s3idx] = s3
 

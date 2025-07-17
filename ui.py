@@ -295,8 +295,10 @@ class TrainerEdit(tk.Frame):
 
         newhsave = self.parent.save
 
+        version = viewbase.getVersion(newhsave)
+
         for i in range(20):
-            newhsave = viewbase.insert_base_to_save(newhsave, self.bases[i], i)
+            newhsave = viewbase.insert_base_to_save(newhsave, self.bases[i], i, version)
 
         fullsave = viewbase.insert_halfsave_to_save(self.parent.fullsave, newhsave)
 
