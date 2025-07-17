@@ -32,6 +32,10 @@ def get_decoration_offset(decor_id):
         return -7, -9
     elif h == w == 3:
         return -7, -9
+    elif h == 4 and w == 2:
+        return -7, -10
+    elif h == 2 and w == 4:
+        return -7, -8
     return -7, -7
 
 
