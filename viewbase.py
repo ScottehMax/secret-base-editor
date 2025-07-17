@@ -453,7 +453,11 @@ def getVersion(save):
         case 1:
             version = 'firered/leafgreen'
         case _:
-            version = 'emerald'
+            # R/S only goes up to 0x890, so check for anything after that
+            if any(byte != 0 for byte in save.sections[save_index % 14].data[0x890:0xF2C]):
+                version = 'emerald'
+            else:
+                version = 'ruby/sapphire'
 
     return version
 
