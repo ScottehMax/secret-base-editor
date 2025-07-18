@@ -89,7 +89,6 @@ class EditCanvas(tk.Frame):
         self.scale = scale
         self.mode = "normal"
         self.selected_decor_idx = None
-        self.drag_offset = (0, 0)  # Offset between click and top-left corner of decoration
 
         self.add_controls()
 
@@ -197,11 +196,12 @@ class EditCanvas(tk.Frame):
         self.draw_decorations()
         self.draw_controls()
 
-    def detect_click(self, event):
+    def get_decor_under_point(self, x, y):
         if self.base is None:
-            return
-        x, y = event.x, event.y
+            return None
         tile_size = 16 * self.scale
+        dolls_cushions = []
+        others = []
         for i in range(len(self.base['decorations'])-1, -1, -1):
             decor = self.base['decorations'][i]
             if decor == "DECOR_NONE":
@@ -221,38 +221,48 @@ class EditCanvas(tk.Frame):
             deco_x1 = deco_x0 + (16 * width) * self.scale
             deco_y1 = deco_y0 + (16 * height) * self.scale
             if deco_x0 <= x < deco_x1 and deco_y0 <= y < deco_y1:
-                self.selected_decor_idx = i
-                # Store the grid cell where drag started
-                self._drag_start_grid = (x // tile_size, y // tile_size)
-                self._drag_start_decor_pos = (i_x_pos, i_y_pos)
-                print(f"Selected {decor} at {i_x_pos}, {i_y_pos}, drag started at grid {self._drag_start_grid}")
-                self.select(i)
-                self.draw()
-                return
+                if decor.endswith("DOLL") or decor.endswith("CUSHION"):
+                    dolls_cushions.append((i, decor, i_x_pos, i_y_pos))
+                else:
+                    others.append((i, decor, i_x_pos, i_y_pos))
+        if dolls_cushions:
+            return dolls_cushions[0]
+        elif others:
+            return others[0]
+        else:
+            return None
+
+    def detect_click(self, event):
+        if self.base is None:
+            return
+        x, y = event.x, event.y
+        result = self.get_decor_under_point(x, y)
+        if result is None:
+            return
+        i, decor, i_x_pos, i_y_pos = result
+        tile_size = 16 * self.scale
+        self.selected_decor_idx = i
+        # Store the grid cell where drag started
+        self._drag_start_grid = (x // tile_size, y // tile_size)
+        self._drag_start_decor_pos = (i_x_pos, i_y_pos)
+        print(f"Selected {decor} at {i_x_pos}, {i_y_pos}, drag started at grid {self._drag_start_grid}")
+        self.select(i)
+        self.draw()
+        return
 
     def detect_right_click(self, event):
         if self.base is None:
             return
         x, y = event.x, event.y
-        t_x, t_y = x // (16 * self.scale), y // (16 * self.scale)
-        idx = None
-        for i in range(len(self.base['decorations'])-1, -1, -1):
-            decor = self.base['decorations'][i]
-            if decor == "DECOR_NONE":
-                continue
-            x_offset, y_offset = get_decoration_offset(decor)
-            i_x_pos, i_y_pos = self.base['decoration_positions'][i]
-            x_pos = (i_x_pos + x_offset)
-            y_pos = (i_y_pos + y_offset)
-            if x_pos == t_x and y_pos == t_y:
-                idx = i
-
-        if idx is not None:
-            print(f"Right clicked {decor} at {i_x_pos}, {i_y_pos}")
-            self.select(idx)
-            self.set_decor("DECOR_NONE")
-            self.draw()
+        result = self.get_decor_under_point(x, y)
+        if result is None:
             return
+        i, decor, i_x_pos, i_y_pos = result
+        print(f"Right clicked {decor} at {i_x_pos}, {i_y_pos}")
+        self.select(i)
+        self.set_decor("DECOR_NONE")
+        self.draw()
+        return
 
     def handle_drag(self, event):
         if self.base is None or self.selected_decor_idx is None:
