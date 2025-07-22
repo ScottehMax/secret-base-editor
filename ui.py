@@ -10,7 +10,7 @@ from tkinter import filedialog, messagebox
 import viewbase
 from baseedit import EditCanvas, draw_base
 from baseinfo import BASE_NAMES, BASE_NAMES_REV
-from canvasbutton import CanvasButton
+from widgets.canvasbutton import CanvasButton
 from items import ITEMS
 from pokemon import MOVES, POKEMON
 from viewbase import layout_hash, team_hash
