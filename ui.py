@@ -425,6 +425,8 @@ class App(tk.Tk):
         self.treeview = ttk.Treeview(self, show="tree", selectmode='browse')
         self.treeview.grid(row=0, column=0, sticky='nsew')
         self.treeview.bind("<ButtonRelease-1>", self.on_treeview_click)
+        self.treeview.bind('<Up>', lambda event: self.on_treeview_move(-1))
+        self.treeview.bind('<Down>', lambda event: self.on_treeview_move(1))
 
         for i in range(20):
             self.treeview.insert('', 'end', text=f'Base {i+1}')
@@ -494,6 +496,20 @@ class App(tk.Tk):
             self.edit.load_base(self.treeview.index(item))
         except AttributeError:
             pass
+
+    def on_treeview_move(self, direction):
+        items = self.treeview.get_children()
+        if not items:
+            return
+        sel = self.treeview.selection()
+        if not sel:
+            idx = 0
+        else:
+            idx = self.treeview.index(sel[0])
+            idx = max(0, min(len(items) - 1, idx + direction))
+        self.treeview.selection_set(items[idx])
+        if hasattr(self.edit, 'bases') and self.edit.bases:
+            self.edit.load_base(idx)
 
     def open_file_dialog(self):
         file_path = filedialog.askopenfilename(title="Open File", filetypes=[("SAV", "*.sav")])
